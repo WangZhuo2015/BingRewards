@@ -1410,13 +1410,13 @@ def multi_threading():
             PASSWORD = x[colonIndex:len(x)]
             t = threading.Thread(target=multi_method, args=(EMAIL, PASSWORD))
             threads.append(t)
-            print(f'Account {EMAIL} acquire semaphore\n')
             MUTEX.acquire();
+            print(f'Account {EMAIL} acquire semaphore\n')
             t.start()
         for thread in threads:
             thread.join()
-            print(f'Account {EMAIL} release semaphore\n')
             MUTEX.release()
+            print(f'Account {EMAIL} release semaphore\n')
 
 # Main function
 def main():
