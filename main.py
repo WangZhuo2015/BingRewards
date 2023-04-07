@@ -32,6 +32,8 @@ from selenium.common.exceptions import NoSuchElementException
 from time import sleep
 from dotenv import load_dotenv
 
+from Notification import BarkNotification
+
 try:
     from random_words import RandomWords
 except ImportError:
@@ -126,15 +128,7 @@ else:
     SHOPPING = False
 
 # Apprise Alerts
-APPRISE_ALERTS = os.environ.get("APPRISE_ALERTS", "")
-if APPRISE_ALERTS:
-    APPRISE_ALERTS = APPRISE_ALERTS.split(",")
-    # Apprise
-    try:
-        import apprise
-    except ImportError:
-        os.system("pip install apprise")
-        import apprise
+BARK_ENABLE = os.environ.get("BARK_API_KEY")
 
 HEADLESS = os.environ.get("HEADLESS", "False").lower()
 if (HEADLESS == "true"):
@@ -214,15 +208,6 @@ except ValueError:
     POINTS_PER_SEARCH = 5
 
 
-# Methods
-def apprise_init():
-    if APPRISE_ALERTS:
-        alerts = apprise.Apprise()
-        for service in APPRISE_ALERTS:
-            alerts.add(service)
-        return alerts
-
-
 def get_current_ip(type, proxies):
     try:
         return ((requests.get(f"https://ip{type}.icanhazip.com", proxies=proxies)).text).strip("\n")
@@ -231,7 +216,7 @@ def get_current_ip(type, proxies):
         if type == "v4":
             # Send message to console and apprise alert if configured
             print(f"Failed to connect to icanhazip.com over {type}. Is there a problem with your network?")
-            if APPRISE_ALERTS:
+            if BARK_ENABLE:
                 alerts.notify(title=f"Failed to connect to icanhazip.com over {type}",
                               body=f"Is there a problem with your network?")
             # Wait some time (to prevent Docker containers from constantly restarting)
@@ -244,7 +229,7 @@ def get_current_ip(type, proxies):
     except Exception as e:
         # Catch all other errors.
         print(f"An exception occurred while trying to get your current IP address: {e}")
-        if APPRISE_ALERTS:
+        if BARK_ENABLE:
             alerts.notify(title=f"An exception occurred while trying to get your current IP address",
                           body=f"{e}")
         # Wait some time (to prevent Docker containers from constantly restarting)
@@ -263,7 +248,7 @@ def check_ip_address():
     if WANTED_IPV4:
         if WANTED_IPV4 != current_ipv4:
             print(f"IPv4 addresses do not match. Wanted {WANTED_IPV4} but got {current_ipv4}")
-            if APPRISE_ALERTS:
+            if BARK_ENABLE:
                 alerts.notify(title=f'IPv4 Address Mismatch', body=f'Wanted {WANTED_IPV4} but got {current_ipv4}')
             raise Exception(f"IPv4 addresses do not match. Wanted {WANTED_IPV4} but got {current_ipv4}")
         else:
@@ -272,7 +257,7 @@ def check_ip_address():
     if WANTED_IPV6 and current_ipv6:
         if WANTED_IPV6 != current_ipv6:
             print(f"IPv6 addresses do not match. Wanted {WANTED_IPV6} but got {current_ipv6}")
-            if APPRISE_ALERTS:
+            if BARK_ENABLE:
                 alerts.notify(title=f'IPv6 Address Mismatch',
                               body=f'Wanted {WANTED_IPV6} but got {current_ipv6}')
             raise Exception(f"IPv6 addresses do not match. Wanted {WANTED_IPV6} but got {current_ipv6}")
@@ -363,7 +348,7 @@ def login(EMAIL, PASSWORD, driver):
         message = driver.find_element(By.XPATH, value='//*[@id="usernameError"]').text
         if ("microsoft account doesn't exist" in message.lower()):
             print(f"Microsoft account {EMAIL} doesn't exist. Skipping this account & moving onto the next in env...")
-            if APPRISE_ALERTS:
+            if BARK_ENABLE:
                 alerts.notify(title=f'{BOT_NAME} - Account does not exist.',
                               body=f"Microsoft account {EMAIL} doesn't exist. Please review login env for spelling errors or create the account with {EMAIL} and restart the bot. Skipping this account...")
             return False
@@ -406,7 +391,7 @@ def login(EMAIL, PASSWORD, driver):
         message = driver.find_element(By.XPATH, value='//*[@id="passwordError"]').text
         if ("password is incorrect" in message.lower()):
             print(f"Microsoft account {EMAIL} has incorrect password in LOGIN env. Skipping...")
-            if APPRISE_ALERTS:
+            if BARK_ENABLE:
                 alerts.notify(title=f'{BOT_NAME} - {EMAIL} incorrect password.',
                               body=f"Microsoft account {EMAIL} has an incorrect password message. Please correct your LOGIN in env and restart the bot. Skipping this account & moving onto the next in env...")
             return False
@@ -423,7 +408,7 @@ def login(EMAIL, PASSWORD, driver):
         try:
             message = driver.find_element(By.XPATH, value='//*[@id="StartHeader"]').text
             if message.lower() == "your account has been locked":
-                if APPRISE_ALERTS:
+                if BARK_ENABLE:
                     alerts.notify(title=f'{BOT_NAME}: Account Locked!',
                                   body=f'Your account {EMAIL} has been locked! Sign in and verify your account.\n\n...')
                 print(
@@ -437,7 +422,7 @@ def login(EMAIL, PASSWORD, driver):
             if message.lower() == "help us protect your account":
                 print(
                     f"uh-oh, your account {EMAIL} will need to manually add an alternative email address!\nAttempting to skip in 50 seconds, if possible...")
-                if APPRISE_ALERTS:
+                if BARK_ENABLE:
                     alerts.notify(title=f'{BOT_NAME}: Account Secuirity Notice!',
                                   body=f'Your account {EMAIL} requires you to add an alternative email address or a phone number!\nPlease sign in and add one to your account.\n\n\nAttempting to skip, if still possible...')
                 sleep(SLEEP_FACTOR * SLEEP_FACTOR * 50)
@@ -988,7 +973,7 @@ def redeem(driver, EMAIL):
         if (veri.lower() == 'phone verification'):
             print("\tPhone verification required!")
 
-        if APPRISE_ALERTS:
+        if BARK_ENABLE:
             alerts.notify(title=f'{BOT_NAME}: Phone Verification Required',
                           body=f'{EMAIL} has enough points for redeeming your goal, but needs to verify phone number for first reward.\nPlease verify your phone number.\nNext redemption will be automatic, if enabled.\n\n...')
             print('\tSleeping for a bit to allow manual verification...')
@@ -1001,20 +986,20 @@ def redeem(driver, EMAIL):
             if ("issue with your account or order" in message.lower()):
                 message = f'{EMAIL} has encountered the following message while attempting to auto-redeem rewards:\n{error}\nUnfortunately, this is likely means this account has been shadow-banned. You may test your luck and contact support or just close the account to try again on another account.\n\n...'
                 print(message)
-                if APPRISE_ALERTS:
+                if BARK_ENABLE:
                     alerts.notify(title=f'{BOT_NAME}: Account/Order Issue', body=message)
                 return message
         except:
             pass
 
-        if APPRISE_ALERTS:
+        if BARK_ENABLE:
             alerts.notify(title=f'{BOT_NAME}: Rewards Redeemed!',
                           body=f'{EMAIL} has successfully redeemed rewards!\n\n...')
         print('\tRewards redeemed successfully!')
         return f"{EMAIL} has successfully redeemed rewards!"
 
     except Exception as e:
-        if APPRISE_ALERTS:
+        if BARK_ENABLE:
             alerts.notify(title=f'{BOT_NAME}: Redeem Error',
                           body=f'An error occured trying to auto-redeem for: {EMAIL}\n\n{traceback.format_exc()}\n\n...')
         print(e)
@@ -1071,7 +1056,7 @@ def get_points(EMAIL, PASSWORD, driver):
                         By.XPATH, value='/html/body/div[1]/div[2]/main/div/h1').text.lower():
                     print(f"\t{EMAIL} account has been suspended.")
 
-                    if APPRISE_ALERTS:
+                    if BARK_ENABLE:
                         alerts.notify(title=f'{BOT_NAME}: Account Suspended',
                                       body=f'Unfortunately, {EMAIL}\'s Bing Rewards account has been suspended. Please remove login details from the bot.\n\n...')
                     return -404
@@ -1340,7 +1325,7 @@ def multi_method(EMAIL, PASSWORD):
     ranSet = daily_set(driver)
 
     if (PC_SEARCHES > 0 or MOBILE_SEARCHES > 0 or ranSet or ranMore):
-        if APPRISE_ALERTS:
+        if BARK_ENABLE:
             alerts.notify(title=f'{BOT_NAME}: Account Automation Starting\n\n',
                           body=f'Email:\t\t{EMAIL}\nPoints:\t\t{points:,} ({CUR_SYMBOL}{round(points / CURRENCY, 3):,})\nStarting:\t{recordTime}\n...')
         streaks = retrieve_streaks(driver, EMAIL)
@@ -1371,7 +1356,7 @@ def multi_method(EMAIL, PASSWORD):
             print(
                 f'\tTotal points:\t{points:,}\n\tValue of Points:\t{round(points / CURRENCY, 3):,}\n\t{EMAIL} has gained a total of {differenceReport:,} points!\n\tThat is worth {CUR_SYMBOL}{round(differenceReport / CURRENCY, 3):,}!\nStreak Status:{streaks}\n\nStart Time:\t{recordTime}\nEnd Time:\t{datetime.datetime.now(TZ)}\n\n\n...')
             report = f'Points:\t\t\t{points:,} ({CUR_SYMBOL}{round(points / CURRENCY, 3):,})\nEarned Points:\t\t\t{differenceReport:,} ({CUR_SYMBOL}{round(differenceReport / CURRENCY, 3):,})\n{message}\nStart Time:\t{recordTime}\nEnd Time:\t{datetime.datetime.now(TZ)}'
-            if APPRISE_ALERTS:
+            if BARK_ENABLE:
                 alerts.notify(title=f'{BOT_NAME}: Account Automation Completed!:\n',
                               body=f'Email:\t{EMAIL}\n{report}\n\n...')
 
@@ -1429,7 +1414,7 @@ def start_rewards():
             driver = get_driver()
 
         if (PC_SEARCHES > 0 or MOBILE_SEARCHES > 0 or ranDailySets or ranMoreActivities):
-            if APPRISE_ALERTS:
+            if BARK_ENABLE:
                 alerts.notify(title=f'{BOT_NAME}: Account Automation Starting\n\n',
                               body=f'Email:\t\t{EMAIL}\nPoints:\t\t{points:,} ({CUR_SYMBOL}{round(points / CURRENCY, 3):,})\nStarting:\t{recordTime}\n...')
             try:
@@ -1464,7 +1449,7 @@ def start_rewards():
                 print(
                     f'\tTotal points:\t{points:,}\n\tValue of Points:\t{round(points / CURRENCY, 3):,}\n\t{EMAIL} has gained a total of {differenceReport:,} points!\n\tThat is worth {CUR_SYMBOL}{round(differenceReport / CURRENCY, 3):,}!\nStreak Status:{streaks}\n\nStart Time:\t{recordTime}\nEnd Time:\t{datetime.datetime.now(TZ)}\n\n\n...')
                 report = f'Points:\t\t\t{points:,} ({CUR_SYMBOL}{round(points / CURRENCY, 3):,})\nEarned Points:\t\t\t{differenceReport:,} ({CUR_SYMBOL}{round(differenceReport / CURRENCY, 3):,})\n{message}\nStart Time:\t{recordTime}\nEnd Time:\t{datetime.datetime.now(TZ)}'
-                if APPRISE_ALERTS:
+                if BARK_ENABLE:
                     alerts.notify(title=f'{BOT_NAME}: Account Automation Completed!:\n',
                                   body=f'Email:\t{EMAIL}\n{report}\n\n...')
         try:
@@ -1477,7 +1462,7 @@ def start_rewards():
     if ranRewards and totalDifference > 0:
         report = f'\nAll accounts for {BOT_NAME} have been automated.\nTotal Points (across all accounts):\t\t{totalPointsReport:,} ({CUR_SYMBOL}{round(totalPointsReport / CURRENCY, 3):,})\n\nTotal Earned (in latest run):\t\t{totalDifference} ({CUR_SYMBOL}{round(totalDifference / CURRENCY, 3):,})\n\nStart Time: {loopTime}\nEnd Time:{datetime.datetime.now(TZ)}'
         print(report)
-        if APPRISE_ALERTS:
+        if BARK_ENABLE:
             alerts.notify(title=f'{BOT_NAME}: Automation Complete\n',
                           body=f'{report}\n\n...')
     return
@@ -1518,7 +1503,7 @@ def main():
             # Catch any errors, print them, and restart (in hopes of it being non-fatal)
             print(
                 f'Exception: {e}\n\n{traceback.format_exc()}\n\n\n Attempting to restart Bing Rewards Automation in 10 minutes...')
-            if APPRISE_ALERTS:
+            if BARK_ENABLE:
                 alerts.notify(title=f'{BOT_NAME}: Failed!',
                               body=f'EXCEPTION: {e} \n\n{traceback.format_exc()} \nAttempting to restart in 10 minutes...\n\n ')
             sleep(SLEEP_FACTOR * 600)
@@ -1527,8 +1512,8 @@ def main():
 
 if __name__ == "__main__":
     # Initialize apprise alerts
-    if APPRISE_ALERTS:
-        alerts = apprise_init()
+    if BARK_ENABLE:
+        alerts = BarkNotification()
 
     # Run checks on IP address & start main function, if all is good
     check_ip_address()

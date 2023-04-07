@@ -16,7 +16,7 @@ class BarkNotification(Notification):
             raise Exception("Bark API Key is not set")
         self.api_key = api_key
 
-    def notify(self, message, title="Bing Rewards"):
+    def notify(self, body, title="Bing Rewards"):
         # https://api.day.app/{api_key}}/Title/text
         # send http get request to the url
-        requests.get(f"https://api.day.app/{self.api_key}/{title}/{message}")
+        requests.get(f"https://api.day.app/{self.api_key}/{title}/{body}")
