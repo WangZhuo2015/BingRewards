@@ -20,7 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import os, random, traceback, requests, datetime
+import os, random, traceback, requests, datetime, threading
 
 from selenium                                 import webdriver
 from selenium.webdriver.common.by             import By
@@ -137,6 +137,9 @@ else:
     HEADLESS = False
 
 MULTITHREADING = os.environ.get("MULTITHREADING", "False").lower()
+MULTITHREAD_CONCURRENT_NUM = int(os.environ.get("MULTITHREAD_CONCURRENT_NUM", "1"))
+MUTEX = threading.Semaphore(MULTITHREAD_CONCURRENT_NUM)
+
 if (MULTITHREADING == "true"):
     import threading
     MULTITHREADING = True
@@ -1407,9 +1410,13 @@ def multi_threading():
             PASSWORD = x[colonIndex:len(x)]
             t = threading.Thread(target=multi_method, args=(EMAIL, PASSWORD))
             threads.append(t)
+            print(f'Account {EMAIL} acquire semaphore\n')
+            MUTEX.acquire();
             t.start()
         for thread in threads:
             thread.join()
+            print(f'Account {EMAIL} release semaphore\n')
+            MUTEX.release()
 
 # Main function
 def main():
