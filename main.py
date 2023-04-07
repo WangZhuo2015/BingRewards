@@ -58,8 +58,8 @@ else:
 
 # Check number of accounts (limit to 6 per IP address to avoid bans)
 
-ACCOUNT_LIMIT = os.environ.get("ACCOUNT_LIMIT", float ( 'inf'))
-if (len(ACCOUNTS) > ACCOUNT_LIMIT):
+ACCOUNT_LIMIT = float(os.environ.get("ACCOUNT_LIMIT"))
+if 0 < ACCOUNT_LIMIT < len(ACCOUNTS):
     raise Exception(
         f"You can only have 5 accounts per IP address. Using more increases your chances of being banned by Microsoft Rewards. You have {len(ACCOUNTS)} accounts within your LOGIN env variable. Please adjust it to have 5 or less accounts and restart the program.")
 
@@ -1515,8 +1515,8 @@ def main():
 if __name__ == "__main__":
     # Initialize apprise alerts
     if BARK_ENABLE:
-        alerts = BarkNotification()
-
+        alerts = BarkNotification(api_key=os.environ.get("BARK_API_KEY"),bark_server=os.environ.get("BARK_SERVER"))
+        alerts.notify(body="Bing Rewards Automation has started! :)", title=f'{BOT_NAME}: Started! :)')
     # Run checks on IP address & start main function, if all is good
     check_ip_address()
     main()
