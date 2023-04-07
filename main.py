@@ -1328,7 +1328,7 @@ def multi_method(EMAIL, PASSWORD):
 
     if (PC_SEARCHES > 0 or MOBILE_SEARCHES > 0 or ranSet or ranMore):
         if BARK_ENABLE:
-            alerts.notify(title=f'{BOT_NAME}: Account Automation Starting\n\n',
+            alerts.notify(title=f'{BOT_NAME}: Automation Starting',
                           body=f'Email:\t\t{EMAIL}\nPoints:\t\t{points:,} ({CUR_SYMBOL}{round(points / CURRENCY, 3):,})\nStarting:\t{recordTime}\n...')
         streaks = retrieve_streaks(driver, EMAIL)
         ranRewards = True
